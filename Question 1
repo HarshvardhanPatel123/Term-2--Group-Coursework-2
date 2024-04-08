@@ -1,3 +1,53 @@
+class TableStatus: # Class for representing detail of all tables (capacity, table number etc.)
+    def __init__(self, table_number, capacity): 
+        self.table_number = table_number # Self used to assign value to instance attribute
+        self.capacity = capacity
+        self.slots = [True] * 9 # 9 possible slots from 6 to 10:30, True means free and False means booked
+
+    def time_to_slot(self, time): # To convert booking time to slot
+        hour, minute = map(int, time.split(':'))
+        index = (hour - 18) * 2
+        if minute == 30:
+            index = index + 1
+        return index
+    
+
+    def availability(self, booking_time, duration_hours):
+        start_index = self.time_to_slot_index(booking_time)
+        slots_needed = int(duration_hours * 2) # Convert duration to number of slots needed
+
+        # Increment through slots for availability
+        for i in range(start_index, start_index + slots_needed):
+            if i >= len(self.slots) or not self.slots[i]:
+                return False  # Slot not available
+        return True
+    
+    def book_table(self, booking):
+        start_index = self.time_to_slot_index(booking.time)
+        slots_needed = int(booking.duration * 2)
+        
+        for i in range(start_index, start_index + slots_needed):
+            if i < len(self.slots):  
+                self.slots[i] = False  # Mark slot as booked
+
+    def display_table_bookings(self): # To display the table
+        for i, available in enumerate(self.slots):
+            hour = 18 + i // 2
+            minute = "00" if i % 2 == 0 else "30"
+            print(f"{hour}:{minute} - {'Available' if available else 'Booked'}")
+
+class Booking_Details: # Class for detailed booking analysis
+    def __init__(self, time, no_of_people, booking_type, name):
+        self.time = time
+        self.number_of_people = number_of_people
+        self.booking_type = booking_type  # Either standard or speedy
+        self.surname = surname
+        if booking_type == 'standard':
+            self.duration = 1.5 # From table status class
+        else:
+            self.duration = 1
+
+
 class Main_Restaurant: # Class for the main orchestration of the system and handling new bookings
     def __init__(self): # Create table structure: Table(Number, Capacity)
         self.tables = [TableStatus(1, 2), TableStatus(2, 2),  
@@ -30,47 +80,32 @@ class Main_Restaurant: # Class for the main orchestration of the system and hand
                 print("Invalid booking type. Please select 'standard' or 'speedy'.")
                 continue
 
-            booking_surname = input("Surname of reservation holder: \n").strip()
+            booking_surname = input("Surname of reservation holder: ").strip()
             if not booking_surname:
                 print("Surname of reservation holder cannot be empty.")
-                continue
+                break
+            
         
         
     def place_booking(self, booking):
-        return
+        for table in self.tables: # Increment through tables to check for capacity and availability
+            if table.can_accommodate(booking) and table.is_available(booking.time, booking.duration):
+                table.book_table(booking)
+                print(f"Booking confirmed for {booking.surname} at table {table.table_number}.")
+                return True
+        # If no table is found, attempt to find alternatives or suggest speedy booking
+        print("\nNo suitable table available. Attempting to find alternatives...")
+        return self.alternative(booking)
 
+    def alternative(self, booking):
+        return True
 
     def display_bookings(self):
-        return
-    
-
-
-
-
-class Booking_Details: # Class for detailed booking analysis
-    def __init__(self, time, no_of_people, booking_type, name):
-        self.time = time
-        self.number_of_people = number_of_people
-        self.booking_type = booking_type  # Either standard or speedy
-        self.surname = surname
-        if booking_type == 'standard':
-            self.duration = 1.5 # From table status class
+        if not self.bookings:
+            print("No bookings have been made.")
         else:
-            self.duration = 1
-
-
-
-
-
-
-class Table_Status: # Class for representing detail of all tables (capacity, table number etc.)
-    def __init__(self, table_number, capacity): 
-        self.table_number = table_number # Self used to assign value to instance attribute
-        self.capacity = capacity
-        self.bookings = [] # List to hold bookings
-
-    def status(self, time, duration):
-        return
+            for booking in self.bookings:
+                print(f"Surname: {booking.surname}, Time: {booking.time}, People: {booking.number_of_people}, Table: {booking.table_number}")
 
 
 def main():
@@ -86,3 +121,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
