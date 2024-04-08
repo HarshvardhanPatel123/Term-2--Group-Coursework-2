@@ -1,0 +1,88 @@
+class Main_Restaurant: # Class for the main orchestration of the system and handling new bookings
+    def __init__(self): # Create table structure: Table(Number, Capacity)
+        self.tables = [TableStatus(1, 2), TableStatus(2, 2),  
+                       TableStatus(3, 4), TableStatus(4, 4), TableStatus(5, 4),
+                       TableStatus(6, 8), TableStatus(7, 8), TableStatus(8, 10)]
+        self.bookings = []  # List to hold bookings
+
+    def validate_time(self, booking_time): # Time validation function
+        valid_times = [f"{hour:02d}:{minute:02d}" for hour in range(18, 23) for minute in (0, 30)] # As restaurant is open 6pm to 11pm
+        valid_times.remove("22:30") # with last booking 10pm
+        return booking_time in valid_times
+
+    def new_booking(self): # Function to input a new booking
+        while True:  # Main loop for the entire booking process
+            booking_time = input("Enter booking time (HH:MM, 24hr format, e.g., 20:00 for 8pm): ")
+            if not self.validate_time(booking_time): # Check if booking time is in correct format
+                print("Invalid booking time. Please choose a time between 6pm and 10pm on the hour or half-hour.")
+                continue
+
+            try:
+                number_of_people = int(input("Number of people: "))
+                if not 1 <= number_of_people <= 10: # Check if number of people is valid
+                    raise ValueError("Invalid number of people. Must be between 1 and 10.")
+            except ValueError as e:
+                print(e)
+                continue
+
+            booking_type = input("Type of booking (standard or speedy): ").lower()
+            if booking_type not in ['standard', 'speedy']:
+                print("Invalid booking type. Please select 'standard' or 'speedy'.")
+                continue
+
+            booking_surname = input("Surname of reservation holder: \n").strip()
+            if not booking_surname:
+                print("Surname of reservation holder cannot be empty.")
+                continue
+        
+        
+    def place_booking(self, booking):
+        return
+
+
+    def display_bookings(self):
+        return
+    
+
+
+
+
+class Booking_Details: # Class for detailed booking analysis
+    def __init__(self, time, no_of_people, booking_type, name):
+        self.time = time
+        self.number_of_people = number_of_people
+        self.booking_type = booking_type  # Either standard or speedy
+        self.surname = surname
+        if booking_type == 'standard':
+            self.duration = 1.5 # From table status class
+        else:
+            self.duration = 1
+
+
+
+
+
+
+class Table_Status: # Class for representing detail of all tables (capacity, table number etc.)
+    def __init__(self, table_number, capacity): 
+        self.table_number = table_number # Self used to assign value to instance attribute
+        self.capacity = capacity
+        self.bookings = [] # List to hold bookings
+
+    def status(self, time, duration):
+        return
+
+
+def main():
+    restaurant = Main_Restaurant()  
+    while True:  
+        print("\nNew Booking")
+        restaurant.new_booking()  # Start the booking process
+        another = input("Do you want to make another booking? (y/n): ")
+        if another.lower() != 'y':
+            break
+    print("\nAll Bookings:")
+    restaurant.display_bookings()  # Display all bookings made
+
+if __name__ == "__main__":
+    main()
