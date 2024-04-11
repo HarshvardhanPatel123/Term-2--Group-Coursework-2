@@ -11,7 +11,7 @@ class TableStatus: # Class for representing detail of all tables (capacity, tabl
         return index
     
 
-    def availability(self, booking_time, duration_hours): 
+    def availability(self, booking_time, duration_hours):  # Function to check availability of inputted booking
         start_index = TableStatus.time_to_slot(booking_time)
         slots_needed = int(duration_hours * 2) # Convert duration to number of slots needed
 
@@ -21,7 +21,7 @@ class TableStatus: # Class for representing detail of all tables (capacity, tabl
                 return False  # Slot not available
         return True
     
-    def book_table(self, booking):
+    def book_table(self, booking): # Function to put booking into slots
         start_index = TableStatus.time_to_slot(booking.time)
         slots_needed = int(booking.duration * 2) # Check how many slots required (depending on standard or speedy)
         
@@ -29,7 +29,7 @@ class TableStatus: # Class for representing detail of all tables (capacity, tabl
             if i < len(self.slots):  
                 self.slots[i] = booking  # Stores booking details in occupied slot
 
-    def get_booking_info(self, slot_index):
+    def get_booking_info(self, slot_index): # Function to get information of each booking
         booking = self.slots[slot_index]
         if booking:
             return {'surname': booking.surname, 'number_of_people': booking.number_of_people, 'type': booking.booking_type}
@@ -42,7 +42,7 @@ class TableStatus: # Class for representing detail of all tables (capacity, tabl
             minute = "00" if i % 2 == 0 else "30"
             print(f"{hour}:{minute} - {'Available' if available else 'Booked'}")
 
-class Booking_Details: # Class for detailed booking analysis
+class Booking_Details: # Class created to form the basis of each booking
     def __init__(self, time, no_of_people, booking_type, surname, speedy_option=None):
         self.time = time
         self.number_of_people = no_of_people
@@ -99,7 +99,7 @@ class Main_Restaurant: # Class for the main orchestration of the system and hand
 
 
 
-    def validate_capacity(self, booking, time=None): 
+    def validate_capacity(self, booking, time=None): # Function created to choose which table booking goes depending on capacity
         time = time or booking.time
         filtered_tables = [t for t in self.tables if t.capacity >= booking.number_of_people and 
                            ((1 <= booking.number_of_people <= 2 and t.table_number <= 5) or
@@ -114,9 +114,9 @@ class Main_Restaurant: # Class for the main orchestration of the system and hand
         # If no table with the right capacity and availability is found, return None
         return None
 
-    def new_booking(self):
+    def new_booking(self): # Main function to input new booking
         while True:
-            booking_time = input("\nEnter booking time (HH:MM, 24hr format, e.g., 20:00 for 8pm): ")
+            booking_time = input("\nEnter booking time (HH:MM, 24hr format, e.g., 20:00 for 8pm): ") 
             booking_type = input("Type of booking (standard or speedy): ").lower()
 
             while booking_type not in ['standard', 'speedy']:
@@ -130,7 +130,7 @@ class Main_Restaurant: # Class for the main orchestration of the system and hand
                     print("Invalid option. Please choose A, B, or C.")
                     speedy_option = input("Choose a speedy option (A, B, or C): ").upper()
 
-            if not self.validate_time(booking_time, booking_type):
+            if not self.validate_time(booking_time, booking_type): # Validates time depending on speedy or standard booking
                 continue
 
             try:
@@ -140,7 +140,7 @@ class Main_Restaurant: # Class for the main orchestration of the system and hand
             except ValueError as e:
                 print(f"Invalid input! Error : {e}")
                 continue
-            
+            # If all goes well, surname inputted
             surname = input("Enter the surname of the reservation holder: ").strip()
             while not surname:
                 print("Surname of reservation holder cannot be empty.")
@@ -178,30 +178,44 @@ class Main_Restaurant: # Class for the main orchestration of the system and hand
         return True
 
     def attempt_alternative(self, booking):
+        # If the time requested is 6 PM, no earlier time can be suggested, so we directly try a speedy booking if it's a standard booking.
         if booking.time == "18:00" and booking.booking_type == 'standard':
             return self.try_speedy_booking(booking)
 
-        alternative_time = self.get_earlier_time(booking.time, 1)
-        table = self.validate_capacity(booking, alternative_time)
-        if table:
-            confirm = input(f"Alternative at {alternative_time}. Confirm? (y/n): ")
-            if confirm.lower() == 'y':
-                booking.time = alternative_time
-                self.confirm(table, booking)
-                return True  # Alternative booking confirmed
+        # Suggest a time slot 30 minutes earlier if possible
+        earlier_time = self.get_earlier_time(booking.time, 1)
+        # Validate if the earlier time slot is valid before suggesting
+        if self.validate_time(earlier_time, booking.booking_type) and earlier_time != booking.time:
+            # Check for the availability of the earlier time slot
+            table = self.validate_capacity(booking, earlier_time)
+            if table:
+                confirm = input(f"Alternative at {earlier_time}. Confirm? (y/n): ")
+                if confirm.lower() == 'y':
+                    booking.time = earlier_time
+                    self.confirm(table, booking)
+                    return True
+                else:
+                    print("Booking not confirmed.")
+                    # If the earlier time slot is rejected, we try for a speedy booking.
+                    if booking.booking_type == 'standard':
+                        return self.try_speedy_booking(booking)
+                    return False
             else:
-                print("Booking not confirmed.")
-                return False  # Alternative booking not confirmed
-
-        if booking.booking_type == 'standard':
-            return self.try_speedy_booking(booking)
+                # If earlier time is also not available, then we suggest a speedy booking.
+                if booking.booking_type == 'standard':
+                    return self.try_speedy_booking(booking)
+        else:
+            # If earlier time is not valid or no earlier time can be suggested, we suggest a speedy booking.
+            if booking.booking_type == 'standard':
+                return self.try_speedy_booking(booking)
 
         return False  # No alternative available
 
 
 
 
-    def get_earlier_time(self, time, slots_back):
+
+    def get_earlier_time(self, time, slots_back): # Simple function to get an earlier time depending on booking misentered
         hour, minute = map(int, time.split(':'))
         minute -= (slots_back * 30)
         while minute < 0:
@@ -210,7 +224,7 @@ class Main_Restaurant: # Class for the main orchestration of the system and hand
         return f"{max(hour, 18):02d}:{minute:02d}" 
 
 
-    def try_speedy_booking(self, booking):
+    def try_speedy_booking(self, booking): # If there is no space for a standard booking, will check for speedy booking
         confirm = input("No standard session space! Attempt speedy booking instead? (y/n): ")
         if confirm.lower() == 'y':
             speedy_option = input("Choose a speedy option (A, B, or C): ").upper()
@@ -223,17 +237,17 @@ class Main_Restaurant: # Class for the main orchestration of the system and hand
             
             table = self.validate_capacity(speedy_booking)
             if table:
-                self.confirm(table, speedy_booking)
-                return True  # Speedy booking confirmed
+                self.confirm(table, speedy_booking) 
+                return True  # Speedy booking confirmed as we assume user wants a speedy booking
             else:
-                print("No speedy booking available either, Sorry!")
+                print("No speedy booking available either, Sorry!") # Possible speedy can't fit!
                 return False  # Speedy booking not available
         else:
             print("Booking not confirmed.")
             return False  # Speedy booking not confirmed
 
 
-    def display_table_overview(self):
+    def display_table_overview(self): # Display the table showing the restaurant
         time_slots = [f"{hour:02d}:{minute:02d}" for hour in range(18, 23) for minute in (0, 30)]
 
         for table in self.tables:
