@@ -71,17 +71,93 @@ update_sold_quantities <- function() {
   assign("inventory", inventory, envir = .GlobalEnv)  # Save updates to global environment
 }
 
+#function to get or initialize inventory
+get_or_initialize_inventory <- function() {
+  inventory_path <- "inventory.rds"
+  if (file.exists(inventory_path)) {
+    return(readRDS(inventory_path))
+  } else {
+    cat("No inventory found. Initializing a new inventory.\n")
+    #if no inventory theb create a new empty environment
+    inventory <- new.env(hash = TRUE)
+    saveRDS(inventory, inventory_path)
+    return(inventory)
+  }
+}
+
 #add or remove a color
 manage_color <- function(color, action) {
-  if (action == "add" && !exists("inventory")) {
-    inventory[[color]] <- list(delivered = 0, price = 0, sold = 0)
-  } else if (action == "remove" && exists("inventory")) {
-    inventory[[color]] <- NULL
+  inventory <- get_or_initialize_inventory()
+  
+  if (action == "add") {
+    if (!exists(color, envir = inventory)) {
+      inventory[[color]] <- list(delivered = 0, sold = 0, revenue = 0, prices = list())
+      cat(sprintf("Added new color: %s to inventory.\n", color))
+    } else {
+      cat(sprintf("Color %s already exists in inventory.\n", color))
+    }
+  } else if (action == "remove") {
+    if (exists(color, envir = inventory)) {
+      rm(list = color, envir = inventory)
+      cat(sprintf("Removed color: %s from inventory.\n", color))
+    } else {
+      cat(sprintf("Color %s does not exist in inventory.\n", color))
+    }
   }
   
-  assign("inventory", inventory, envir = .GlobalEnv)
+  #save the updated inventory back
+  saveRDS(inventory, "inventory.rds")
 }
 
 #generate and save the sales report
-generate_sales_report <- function(date) {
+generate_sales_report <- function(date, filename) {
+  if (!exists("inventory") || length(inventory) == 0) {
+    stop("Inventory has not been initialized or is empty.")
+  }
+  
+  #create a data frame to store the report data
+  report_data <- data.frame(
+    Color = character(),
+    Delivered = integer(),
+    Sold = integer(),
+    Remaining = integer(),
+    Price = numeric(),
+    Revenue = numeric(),
+    stringsAsFactors = FALSE
+  )
+  
+  #fill the data frame with inventory data
+  for (color in names(inventory)) {
+    if (nzchar(color)) {
+      delivered = inventory[[color]]$delivered
+      sold = inventory[[color]]$sold
+      remaining = delivered - sold
+      price = inventory[[color]]$price
+      revenue = sold * price
+      
+      #append to data frame
+      report_data <- rbind(report_data, data.frame(
+        Color = color,
+        Delivered = delivered,
+        Sold = sold,
+        Remaining = remaining,
+        Price = price,
+        Revenue = revenue
+      ))
+    }
+  }
+  
+  #specify the filename based on the provided date if not specified
+  if (missing(filename)) {
+    filename <- paste0("sales_report_", date, ".csv")
+  }
+  
+  #write the report to a CSV file
+  write.csv(report_data, filename, row.names = FALSE)
+  
+  cat(sprintf("Sales report for %s saved as %s\n", date, filename))
+}
+
+print.inventory_item <- function(x) {
+  cat("Color:", x$name, "\nDelivered:", x$delivered, "\nSold:", x$sold, "\nRemaining:", x$remaining, "\nPrice:", x$price, "\nRevenue:", x$revenue, "\n\n")
 }
