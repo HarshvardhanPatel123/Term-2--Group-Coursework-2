@@ -17,15 +17,15 @@ parse_and_update_inventory <- function(filepath, output_dir = getwd()) {
   matches <- gregexpr(pattern, content, perl=TRUE)
   data <- regmatches(content, matches)
   
-  # Initialize or clear previous inventory
+  #initialize or clear previous inventory
   inventory <- new.env(hash = TRUE)  # Use an environment to store inventory
   
-  # Update inventory with new data
+  #update inventory with new data
   for (match_group in data) {
     for (match in match_group) {
       cat("Match found:", match, "\n")
       
-      color <- gsub("[^A-Za-z].*$", "", match)  # Extract color name
+      color <- gsub("[^A-Za-z].*$", "", match)  #extract color name
       numbers <- regmatches(match, gregexpr("\\d+\\.?\\d*", match))
       
       if (length(numbers[[1]]) >= 2) {
@@ -42,7 +42,7 @@ parse_and_update_inventory <- function(filepath, output_dir = getwd()) {
     }
   }
   
-  # Save inventory to an RDS file in the specified directory
+  #save inventory to an RDS file
   save_path <- file.path(output_dir, "inventory.rds")
   saveRDS(inventory, save_path)
   cat(sprintf("Inventory saved to %s\n", save_path))
@@ -51,30 +51,54 @@ parse_and_update_inventory <- function(filepath, output_dir = getwd()) {
 
 #update sold quantities for a day
 update_sold_quantities <- function() {
-  if (!exists("inventory") || length(inventory) == 0) {
+  inventory <- get_or_initialize_inventory()  #ensure inventory is loaded
+  
+  if (length(inventory) == 0) {
     stop("Inventory has not been initialized or is empty.")
   }
   
+  #temporary data storage to review before final save
+  temp_data <- list()
+  
   #iterating over inventory to update sold quantities
   for (color in names(inventory)) {
-    if (nzchar(color)) {  # Check if color name is not empty
-      repeat {
-        cat(sprintf("Enter the number of %s tins sold today:\n", color))
-        sold <- as.integer(readline())
-        
-        if (!is.na(sold) && sold >= 0) {
-          inventory[[color]]$sold <- sold
-          break
-        } else {
-          cat("Invalid input. Please enter a non-negative integer.\n")
-        }
+    repeat {
+      cat(sprintf("Enter the number of %s tins sold today:\n", color))
+      sold_str <- readline()
+      
+      if (nzchar(sold_str) && grepl("^[0-9]+$", sold_str)) {
+        sold <- as.integer(sold_str)
+        temp_data[[color]] <- sold
+        break
+      } else {
+        cat("Invalid input. Please enter a non-negative integer.\n")
       }
-    } else {
-      cat("Warning: A color name is missing in the inventory.\n")
     }
   }
   
-  assign("inventory", inventory, envir = .GlobalEnv)  # Save updates to global environment
+  #display all collected data for confirmation
+  cat("You entered the following sales data:\n")
+  for (color in names(temp_data)) {
+    cat(sprintf("%s: %d sold\n", color, temp_data[[color]]))
+  }
+  
+  #confirm if data is correct
+  cat("Is this data correct? (yes/no):\n")
+  response <- tolower(readline())
+  
+  if (response == "yes") {
+    #update inventory with confirmed data
+    for (color in names(temp_data)) {
+      inventory[[color]]$sold <- temp_data[[color]]
+      inventory[[color]]$remaining <- inventory[[color]]$delivered - inventory[[color]]$sold  #calculate remaining stock
+      cat(sprintf("%s: Remaining stock %d\n", color, inventory[[color]]$remaining))
+    }
+    
+    saveRDS(inventory, "inventory.rds")  #save updated inventory
+    cat("Sales data updated and saved.\n")
+  } else {
+    cat("Data update canceled. No changes made.\n")
+  }
 }
 
 
