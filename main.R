@@ -11,10 +11,15 @@ update_sold_quantities()
 manage_color("purple", "add")
 manage_color("green", "remove")
 
-#print_current_stock()
+#print current stock levels
+current_stock()
 
-#generate a sales report
+#generate and save the sales report
 generate_sales_report("2024-03-04")
+
+#to show history
+history_color("red")  #print sales history for the color 'red'
+history_week("2024-03-04")  #print sales data for the week starting 2024-03-04
 
 #save the current R environment
 save_environment("my_inventory_env.RData")
