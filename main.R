@@ -2,7 +2,9 @@
 source("functions.R")
 
 #initialize inventory with the data from the first week
+#parse_and_update_inventory("wc20240304.txt")
 parse_and_update_inventory("wc20240304.txt")
+
 
 #update the inventory with the number of tins sold for the day
 update_sold_quantities()

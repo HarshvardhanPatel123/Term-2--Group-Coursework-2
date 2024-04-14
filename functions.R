@@ -8,8 +8,8 @@ load_environment <- function(filename) {
 
 
 #parse the input file and update the inventory
-parse_and_update_inventory <- function(filepath) {
-  lines <- readLines(filepath, warn = FALSE, encoding = "UTF-8")
+parse_and_update_inventory <- function(filepath, output_dir = getwd()) {
+  lines <- readLines(filepath, warn = FALSE)
   content <- paste(lines, collapse = " ")
   content <- iconv(content, "latin1", "UTF-8", sub = "byte")
   
@@ -17,18 +17,20 @@ parse_and_update_inventory <- function(filepath) {
   matches <- gregexpr(pattern, content, perl=TRUE)
   data <- regmatches(content, matches)
   
-  inventory <- list()  #initialize the inventory afresh each time
+  # Initialize or clear previous inventory
+  inventory <- new.env(hash = TRUE)  # Use an environment to store inventory
   
+  # Update inventory with new data
   for (match_group in data) {
     for (match in match_group) {
       cat("Match found:", match, "\n")
       
-      color <- gsub("[^A-Za-z].*$", "", match)  #extract color name
+      color <- gsub("[^A-Za-z].*$", "", match)  # Extract color name
       numbers <- regmatches(match, gregexpr("\\d+\\.?\\d*", match))
       
       if (length(numbers[[1]]) >= 2) {
         number_delivered <- as.numeric(numbers[[1]][1])
-        price <- as.numeric(numbers[[1]][length(numbers[[1]])])
+        price <- as.numeric(numbers[[1]][2])
         
         inventory[[tolower(color)]] <- list(
           delivered = number_delivered,
@@ -40,8 +42,10 @@ parse_and_update_inventory <- function(filepath) {
     }
   }
   
-  assign("inventory", inventory, envir = .GlobalEnv)
-  print(inventory)
+  # Save inventory to an RDS file in the specified directory
+  save_path <- file.path(output_dir, "inventory.rds")
+  saveRDS(inventory, save_path)
+  cat(sprintf("Inventory saved to %s\n", save_path))
 }
 
 
