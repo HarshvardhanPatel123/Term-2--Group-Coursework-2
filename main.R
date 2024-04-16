@@ -3,15 +3,17 @@ setwd("~/Documents/GitHub/Term-2--Group-Coursework-2/")
 source("functions.R")
 
 #weekly file update - ensure the correct file name is used
-weekly_file <- "wc20240311.txt"  #change this each week
+weekly_file <- "wc20240311.txt"  # Change this each week
 parse_and_update_inventory(weekly_file)
+
+#add new color with initial stock and price
+add_color("pink", 50, 9.99)
+
+#deactivate the color
+remove_color("green")
 
 #update the inventory with the number of tins sold for the day
 update_sold_quantities()
-
-#add or remove colors as needed
-add_color("purple", 100, 15.99)
-remove_color("green")
 
 #print current stock levels
 current_stock()

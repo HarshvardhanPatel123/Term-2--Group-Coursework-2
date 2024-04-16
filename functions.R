@@ -7,119 +7,6 @@ load_environment <- function(filename) {
 }
 
 
-#parse the input file and update the inventory
-parse_and_update_inventory <- function(filepath, output_dir = getwd()) {
-  #check if file exists and is readable
-  if (!file.exists(filepath)) {
-    cat("Error: File does not exist.\n")
-    return()
-  }
-  
-  lines <- readLines(filepath, warn = FALSE)
-  if (length(lines) == 0) {
-    cat("Error: File is empty or unreadable.\n")
-    return()
-  }
-  
-  content <- paste(lines, collapse = " ")
-  content <- iconv(content, "latin1", "UTF-8", sub = "byte")
-  
-  pattern <- "([A-Za-z]+)\\D+(\\d+)\\D+£([0-9]+\\.[0-9]{2})"
-  matches <- gregexpr(pattern, content, perl=TRUE)
-  data <- regmatches(content, matches)
-  
-  if (length(data[[1]]) == 0) {
-    cat("No valid data found in file.\n")
-    return()
-  }
-  
-  inventory <- new.env(hash = TRUE)  #initialize or clear previous inventory
-  
-  for (match_group in data) {
-    for (match in match_group) {
-      cat("Match found:", match, "\n")
-      
-      color <- gsub("[^A-Za-z].*$", "", match)
-      numbers <- regmatches(match, gregexpr("\\d+\\.?\\d*", match))
-      
-      if (length(numbers[[1]]) >= 2) {
-        number_delivered <- as.numeric(numbers[[1]][1])
-        price <- as.numeric(numbers[[1]][2])
-        
-        if (is.na(number_delivered) || is.na(price)) {
-          cat(sprintf("Warning: Non-numeric data encountered for %s, skipping.\n", color))
-          next
-        }
-        
-        inventory[[tolower(color)]] <- list(
-          delivered = number_delivered,
-          price = price,
-          sold = 0
-        )
-        cat(sprintf("Updated %s: Delivered %d, Price %.2f\n", color, number_delivered, price))
-      }
-    }
-  }
-  
-  save_path <- file.path(output_dir, "inventory.rds")
-  saveRDS(inventory, save_path)
-  cat(sprintf("Inventory saved to %s\n", save_path))
-}
-
-
-#update sold quantities for a day
-update_sold_quantities <- function() {
-  inventory <- get_or_initialize_inventory()  #ensure inventory is loaded
-  
-  if (length(inventory) == 0) {
-    stop("Inventory has not been initialized or is empty.")
-  }
-  
-  #temporary data storage to review before final save
-  temp_data <- list()
-  
-  #iterating over inventory to update sold quantities
-  for (color in names(inventory)) {
-    repeat {
-      cat(sprintf("Enter the number of %s tins sold today:\n", color))
-      sold_str <- readline()
-      
-      if (nzchar(sold_str) && grepl("^[0-9]+$", sold_str)) {
-        sold <- as.integer(sold_str)
-        temp_data[[color]] <- sold
-        break
-      } else {
-        cat("Invalid input. Please enter a non-negative integer.\n")
-      }
-    }
-  }
-  
-  #display all collected data for confirmation
-  cat("You entered the following sales data:\n")
-  for (color in names(temp_data)) {
-    cat(sprintf("%s: %d sold\n", color, temp_data[[color]]))
-  }
-  
-  #confirm if data is correct
-  cat("Is this data correct? (yes/no):\n")
-  response <- tolower(readline())
-  
-  if (response == "yes") {
-    #update inventory with confirmed data
-    for (color in names(temp_data)) {
-      inventory[[color]]$sold <- temp_data[[color]]
-      inventory[[color]]$remaining <- inventory[[color]]$delivered - inventory[[color]]$sold  #calculate remaining stock
-      cat(sprintf("%s: Remaining stock %d\n", color, inventory[[color]]$remaining))
-    }
-    
-    saveRDS(inventory, "inventory.rds")  #save updated inventory
-    cat("Sales data updated and saved.\n")
-  } else {
-    cat("Data update canceled. No changes made.\n")
-  }
-}
-
-
 #function to get or initialize inventory
 get_or_initialize_inventory <- function() {
   inventory_path <- "inventory.rds"
@@ -135,15 +22,106 @@ get_or_initialize_inventory <- function() {
 }
 
 
-#add or remove a color
-add_color <- function(color, delivered = 0, price = 0.00) {
-  inventory <- get_or_initialize_inventory()  # Load inventory
+#parse the input file and update the inventory
+parse_and_update_inventory <- function(filepath, output_dir = getwd()) {
+  #load existing inventory or initialize a new environment if it doesn't exist
+  existing_inventory <- if (file.exists(file.path(output_dir, "inventory.rds"))) {
+    readRDS(file.path(output_dir, "inventory.rds"))
+  } else {
+    new.env(hash = TRUE)
+  }
   
-  color <- tolower(color)  # Normalize color name to lowercase for consistency
+  lines <- readLines(filepath, warn = FALSE)
+  content <- paste(lines, collapse = " ")
+  content <- iconv(content, "latin1", "UTF-8", sub = "byte")
+  
+  pattern <- "([A-Za-z]+)\\D+(\\d+)\\D+£([0-9]+\\.[0-9]{2})"
+  matches <- gregexpr(pattern, content, perl=TRUE)
+  data <- regmatches(content, matches)
+  
+  inventory <- new.env(hash = TRUE)  # Initialize new inventory
+  
+  #copy existing data to new inventory structure
+  for (color in ls(envir = existing_inventory)) {
+    inventory[[color]] <- existing_inventory[[color]]
+  }
+  
+  #process new data and merge with existing
+  for (match_group in data) {
+    for (match in match_group) {
+      color <- tolower(gsub("[^A-Za-z].*$", "", match))
+      numbers <- regmatches(match, gregexpr("\\d+\\.?\\d*", match))
+      if (length(numbers[[1]]) >= 2) {
+        number_delivered <- as.numeric(numbers[[1]][1])
+        price <- as.numeric(numbers[[1]][2])
+        
+        #ensure inactive is checked properly
+        if (!exists(color, envir = inventory) || !isTRUE(inventory[[color]]$inactive)) {
+          inventory[[color]] <- list(
+            delivered = number_delivered,
+            price = price,
+            sold = 0,
+            inactive = FALSE  #default to FALSE if not set
+          )
+        }
+      }
+    }
+  }
+  
+  #save the merged inventory
+  saveRDS(inventory, file.path(output_dir, "inventory.rds"))
+  cat(sprintf("Inventory updated and saved to %s\n", file.path(output_dir, "inventory.rds")))
+}
+
+
+#update sold quantities for a day
+update_sold_quantities <- function() {
+  inventory <- get_or_initialize_inventory()  #load inventory
+  
+  if (length(ls(envir = inventory)) == 0) {
+    stop("Inventory has not been initialized or is empty.")
+  }
+  
+  #iterate over inventory to update sold quantities
+  for (color in ls(envir = inventory)) {
+    color_data <- inventory[[color]]
+    
+    #skip updating if the color is marked as inactive
+    if (isTRUE(color_data$inactive)) {
+      next  #skip to the next iteration in the loop
+    }
+    
+    repeat {
+      cat(sprintf("Enter the number of %s tins sold today (Available: %d):\n", color, color_data$delivered - color_data$sold))
+      sold_str <- readline()
+      if (nzchar(sold_str) && grepl("^[0-9]+$", sold_str)) {
+        sold <- as.integer(sold_str)
+        if (sold > (color_data$delivered - color_data$sold)) {
+          cat("Error: Sold quantity cannot exceed the quantity available. Please enter a valid number.\n")
+        } else {
+          inventory[[color]]$sold <- sold
+          break  #exit the repeat loop after valid input
+        }
+      } else {
+        cat("Invalid input. Please enter a non-negative integer.\n")
+      }
+    }
+  }
+  
+  #save the updated inventory back to the RDS file
+  saveRDS(inventory, "inventory.rds")
+}
+
+
+#add or remove a color
+add_color <- function(color, delivered, price) {
+  inventory <- get_or_initialize_inventory()  #load inventory
+  
+  color <- tolower(color)  #normalize color name to lowercase for consistency
   if (!exists(color, envir = inventory)) {
     inventory[[color]] <- list(
       delivered = delivered,
-      sold = 0,  # Initialize sold as 0
+      sold = 0,
       price = price
     )
     cat(sprintf("Added new color: %s to inventory with %d delivered and price £%.2f.\n", color, delivered, price))
@@ -151,34 +129,27 @@ add_color <- function(color, delivered = 0, price = 0.00) {
     cat(sprintf("Color %s already exists in inventory.\n", color))
   }
   
-  # Save the updated inventory
+  #save the updated inventory
   saveRDS(inventory, "inventory.rds")
 }
 
 
 remove_color <- function(color) {
-  inventory <- get_or_initialize_inventory()  # Load the current inventory
+  inventory <- get_or_initialize_inventory()  #load inventory
   
-  color <- tolower(color)  # Normalize color name to lowercase for consistency
+  color <- tolower(color)  #normalize color name
   if (!exists(color, envir = inventory)) {
     cat(sprintf("Color %s does not exist in the inventory.\n", color))
     return()
   }
   
-  # Retrieve the color data
-  color_data <- inventory[[color]]
+  #set the color as inactive
+  inventory[[color]]$inactive <- TRUE
   
-  # Set delivered and remaining stock to zero but preserve historical data
-  color_data$delivered <- 0
-  color_data$sold <- 0  # Assuming you want to zero out any unsold stock
-  color_data$inactive <- TRUE  # Mark the color as inactive
+  cat(sprintf("Color %s has been deactivated and will no longer be sold.\n", color))
   
-  # Save the updated color data back to the inventory
-  inventory[[color]] <- color_data
-  
-  # Save the updated inventory
+  #save the updated inventory
   saveRDS(inventory, "inventory.rds")
-  cat(sprintf("Color %s has been deactivated and remaining stock removed.\n", color))
 }
 
 
@@ -239,11 +210,13 @@ generate_sales_report <- function(date, filename = NULL) {
 history_color <- function(color) {
   inventory <- get_or_initialize_inventory()
   
+  color <- tolower(color)
   if (!exists(color, envir = inventory)) {
     cat(sprintf("No data found for color: %s\n", color))
   } else {
     color_data <- inventory[[color]]
-    cat(sprintf("Sales History for Color: %s\n", color))
+    status = ifelse(isTRUE(color_data$inactive), "Inactive", "Active")
+    cat(sprintf("Sales History for Color: %s (Status: %s)\n", color, status))
     cat(sprintf("Delivered: %d\n", color_data$delivered))
     cat(sprintf("Sold: %d\n", color_data$sold))
     cat(sprintf("Price: £%.2f\n", color_data$price))
@@ -267,13 +240,14 @@ history_week <- function(week_date) {
   
   for (color in ls(envir = inventory)) {
     color_data <- inventory[[color]]
+    status = ifelse(isTRUE(color_data$inactive), "Inactive", "Active")
     if (is.numeric(color_data$sold) && is.numeric(color_data$price)) {
       sold = as.numeric(color_data$sold)
       price = as.numeric(color_data$price)
       revenue = sold * price
-      cat(sprintf("%s: Sold %d, Price £%.2f, Revenue £%.2f\n", color, sold, price, revenue))
+      cat(sprintf("%s (%s): Sold %d, Price £%.2f, Revenue £%.2f\n", color, status, sold, price, revenue))
     } else {
-      cat(sprintf("Check data types for %s: Ensure 'sold' and 'price' are numeric.\n", color))
+      cat(sprintf("Data type error for color %s.\n", color))
     }
   }
 }
@@ -290,7 +264,8 @@ current_stock <- function() {
   
   for (color in ls(envir = inventory)) {
     color_data <- inventory[[color]]
+    status = ifelse(isTRUE(color_data$inactive), "Inactive", "Active")
     remaining_stock = color_data$delivered - color_data$sold
-    cat(sprintf("%s: Remaining %d\n", color, remaining_stock))
+    cat(sprintf("%s (%s): Remaining %d\n", color, status, remaining_stock))
   }
 }
