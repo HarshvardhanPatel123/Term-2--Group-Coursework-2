@@ -10,7 +10,7 @@ parse_and_update_inventory(weekly_file)
 update_sold_quantities()
 
 #add or remove colors as needed
-add_color("purple")
+add_color("purple", 100, 15.99)
 remove_color("green")
 
 #print current stock levels

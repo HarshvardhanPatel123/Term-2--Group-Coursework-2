@@ -136,42 +136,47 @@ get_or_initialize_inventory <- function() {
 
 
 #add or remove a color
-add_color <- function(color) {
-  inventory <- get_or_initialize_inventory()  #load inventory
+add_color <- function(color, delivered = 0, price = 0.00) {
+  inventory <- get_or_initialize_inventory()  # Load inventory
   
+  color <- tolower(color)  # Normalize color name to lowercase for consistency
   if (!exists(color, envir = inventory)) {
-    inventory[[color]] <- list(delivered = 0, sold = 0, revenue = 0, prices = list())
-    cat(sprintf("Added new color: %s to inventory.\n", color))
+    inventory[[color]] <- list(
+      delivered = delivered,
+      sold = 0,  # Initialize sold as 0
+      price = price
+    )
+    cat(sprintf("Added new color: %s to inventory with %d delivered and price £%.2f.\n", color, delivered, price))
   } else {
     cat(sprintf("Color %s already exists in inventory.\n", color))
   }
   
-  #save the updated inventory
+  # Save the updated inventory
   saveRDS(inventory, "inventory.rds")
 }
 
 
 remove_color <- function(color) {
-  inventory <- get_or_initialize_inventory()  #load the current inventory
+  inventory <- get_or_initialize_inventory()  # Load the current inventory
   
-  color <- tolower(color)  #normalize color name to lowercase for consistency
+  color <- tolower(color)  # Normalize color name to lowercase for consistency
   if (!exists(color, envir = inventory)) {
     cat(sprintf("Color %s does not exist in the inventory.\n", color))
     return()
   }
   
-  #retrieve the color data
+  # Retrieve the color data
   color_data <- inventory[[color]]
   
-  #set delivered and remaining stock to zero but preserve historical data
+  # Set delivered and remaining stock to zero but preserve historical data
   color_data$delivered <- 0
   color_data$sold <- 0  # Assuming you want to zero out any unsold stock
   color_data$inactive <- TRUE  # Mark the color as inactive
   
-  #save the updated color data back to the inventory
+  # Save the updated color data back to the inventory
   inventory[[color]] <- color_data
   
-  #save the updated inventory
+  # Save the updated inventory
   saveRDS(inventory, "inventory.rds")
   cat(sprintf("Color %s has been deactivated and remaining stock removed.\n", color))
 }
