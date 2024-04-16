@@ -76,31 +76,41 @@ parse_and_update_inventory <- function(filepath, output_dir = getwd()) {
 
 #update sold quantities for a day
 update_sold_quantities <- function() {
-  inventory <- get_or_initialize_inventory()  #load inventory
+  inventory <- get_or_initialize_inventory()  # Load inventory
   
   if (length(ls(envir = inventory)) == 0) {
     stop("Inventory has not been initialized or is empty.")
   }
   
-  #iterate over inventory to update sold quantities
+  # Ask for today's date
+  cat("Please enter today's date (YYYY-MM-DD):\n")
+  date_str <- readline()
+  if (!grepl("^\\d{4}-\\d{2}-\\d{2}$", date_str)) {
+    cat("Invalid date format. Please use YYYY-MM-DD format.\n")
+    return()
+  }
+  
+  # Initialize a temporary data store to hold today's sales input
+  daily_sales <- list()
+  
   for (color in ls(envir = inventory)) {
     color_data <- inventory[[color]]
     
-    #skip updating if the color is marked as inactive
     if (isTRUE(color_data$inactive)) {
-      next  #skip to the next iteration in the loop
+      next  # Skip inactive colors
     }
     
     repeat {
-      cat(sprintf("Enter the number of %s tins sold today (Available: %d):\n", color, color_data$delivered - color_data$sold))
+      current_available <- color_data$delivered - color_data$sold  # Current stock available for sale
+      cat(sprintf("Enter the number of %s tins sold on %s (Available: %d):\n", color, date_str, current_available))
       sold_str <- readline()
       if (nzchar(sold_str) && grepl("^[0-9]+$", sold_str)) {
         sold <- as.integer(sold_str)
-        if (sold > (color_data$delivered - color_data$sold)) {
+        if (sold > current_available) {
           cat("Error: Sold quantity cannot exceed the quantity available. Please enter a valid number.\n")
         } else {
-          inventory[[color]]$sold <- sold
-          break  #exit the repeat loop after valid input
+          daily_sales[[color]] <- sold
+          break  # Exit the repeat loop after valid input
         }
       } else {
         cat("Invalid input. Please enter a non-negative integer.\n")
@@ -108,8 +118,23 @@ update_sold_quantities <- function() {
     }
   }
   
-  #save the updated inventory back to the RDS file
-  saveRDS(inventory, "inventory.rds")
+  # Confirmation of entries
+  cat("You have entered the following sales data:\n")
+  for (color in names(daily_sales)) {
+    cat(sprintf("%s: %d sold on %s\n", color, daily_sales[[color]], date_str))
+  }
+  
+  cat("Confirm all entries are correct (yes/no):\n")
+  confirmation <- tolower(readline())
+  if (confirmation == "yes") {
+    for (color in names(daily_sales)) {
+      inventory[[color]]$sold <- inventory[[color]]$sold + daily_sales[[color]]  # Update inventory with confirmed sales
+    }
+    saveRDS(inventory, "inventory.rds")  # Save the inventory after confirmation
+    cat("Sales data updated and saved.\n")
+  } else {
+    cat("Update canceled. No changes were saved.\n")
+  }
 }
 
 

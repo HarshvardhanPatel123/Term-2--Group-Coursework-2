@@ -8,6 +8,7 @@ parse_and_update_inventory(weekly_file)
 
 #add new color with initial stock and price
 add_color("pink", 50, 9.99)
+add_color("white", 100, 0.99)
 
 #deactivate the color
 remove_color("green")
