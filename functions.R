@@ -75,65 +75,49 @@ parse_and_update_inventory <- function(filepath, output_dir = getwd()) {
 
 
 #update sold quantities for a day
-# Update sold quantities for a day
 update_sold_quantities <- function(date_str) {
-  inventory <- get_or_initialize_inventory()  # Load inventory
+  inventory <- get_or_initialize_inventory()  #load inventory
   
   if (length(ls(envir = inventory)) == 0) {
     stop("Inventory has not been initialized or is empty.")
   }
-  
-  cat("Loaded inventory with the following colors:\n")
-  print(ls(envir = inventory))
   
   daily_sales <- list()
   
   for (color in ls(envir = inventory)) {
     color_data <- inventory[[color]]
     
-    cat(sprintf("Checking color: %s, Status: %s\n", color, ifelse(color_data$inactive, "Inactive", "Active")))
-    
     if (isTRUE(color_data$inactive)) {
-      cat(sprintf("Skipping inactive color: %s\n", color))
-      next  # Skip inactive colors
+      next  #skip inactive colors
     }
     
-    current_available <- color_data$delivered - color_data$sold  # Current stock available for sale
-    cat(sprintf("Prompting sales data for %s. Available: %d\n", color, current_available))
+    #initialize sales for the date if not already present
+    if (is.null(color_data$sales[[date_str]])) {
+      color_data$sales[[date_str]] <- 0
+    }
+    
+    current_available <- color_data$delivered - sum(unlist(color_data$sales))  #current stock available for sale
     
     repeat {
-      cat(sprintf("Enter the number of %s tins sold today (Available: %d):\n", color, current_available))
+      cat(sprintf("Enter the number of %s tins sold on %s (Available: %d):\n", color, date_str, current_available))
       sold_str <- readline()
       if (nzchar(sold_str) && grepl("^[0-9]+$", sold_str)) {
         sold <- as.integer(sold_str)
         if (sold > current_available) {
           cat("Error: Sold quantity cannot exceed the quantity available. Please enter a valid number.\n")
         } else {
-          daily_sales[[color]] <- sold
-          break  # Exit the repeat loop after valid input
+          color_data$sales[[date_str]] <- color_data$sales[[date_str]] + sold  #accumulate sales for the date
+          break  #exit the repeat loop after valid input
         }
       } else {
         cat("Invalid input. Please enter a non-negative integer.\n")
       }
     }
+    inventory[[color]] <- color_data  #update inventory with the modified color data
   }
   
-  cat("You have entered the following sales data:\n")
-  for (color in names(daily_sales)) {
-    cat(sprintf("%s: %d sold on %s\n", color, daily_sales[[color]], date_str))
-  }
-  
-  cat("Confirm all entries are correct (yes/no):\n")
-  confirmation <- tolower(readline())
-  if (confirmation == "yes") {
-    for (color in names(daily_sales)) {
-      inventory[[color]]$sold <- inventory[[color]]$sold + daily_sales[[color]]  # Update inventory with confirmed sales
-    }
-    saveRDS(inventory, "inventory.rds")  # Save the inventory after confirmation
-    cat("Sales data updated and saved.\n")
-  } else {
-    cat("Update canceled. No changes were saved.\n")
-  }
+  saveRDS(inventory, "inventory.rds")  # Save the updated inventory
+  cat("Sales data updated and saved.\n")
 }
 
 
@@ -151,6 +135,24 @@ add_color <- function(color, delivered, price) {
     cat(sprintf("Added new color: %s to inventory with %d delivered and price £%.2f.\n", color, delivered, price))
   } else {
     cat(sprintf("Color %s already exists in inventory.\n", color))
+  }
+  
+  #save the updated inventory
+  saveRDS(inventory, "inventory.rds")
+}
+
+
+#function to refill the stock of a specific color
+refill_color <- function(color, additional_amount) {
+  inventory <- get_or_initialize_inventory()  #load the current inventory
+  
+  color <- tolower(color)  # Normalize color name to lowercase for consistency
+  if (!exists(color, envir = inventory)) {
+    cat(sprintf("Color %s does not exist in the inventory. Cannot refill non-existent color.\n", color))
+  } else {
+    #if color exists, add the additional amount to the delivered stock
+    inventory[[color]]$delivered <- inventory[[color]]$delivered + additional_amount
+    cat(sprintf("Refilled %s: Added %d units. New delivered total: %d.\n", color, additional_amount, inventory[[color]]$delivered))
   }
   
   #save the updated inventory
@@ -250,22 +252,18 @@ history_week <- function(week_date) {
   inventory <- get_or_initialize_inventory()
   cat(sprintf("Sales Data for Week Starting: %s\n", week_date))
   
-  if (length(ls(envir = inventory)) == 0) {
-    cat("No inventory data available.\n")
-    return()
-  }
-  
   for (color in ls(envir = inventory)) {
     color_data <- inventory[[color]]
-    status = ifelse(isTRUE(color_data$inactive), "Inactive", "Active")
-    if (is.numeric(color_data$sold) && is.numeric(color_data$price)) {
-      sold = as.numeric(color_data$sold)
-      price = as.numeric(color_data$price)
-      revenue = sold * price
-      cat(sprintf("%s (%s): Sold %d, Price £%.2f, Revenue £%.2f\n", color, status, sold, price, revenue))
+    #check if there are sales for the specific week and set to 0 if not
+    weekly_sold <- if (is.list(color_data$sales) && !is.null(color_data$sales[[week_date]])) {
+      color_data$sales[[week_date]]
     } else {
-      cat(sprintf("Data type error for color %s.\n", color))
+      0  #default to 0 if no sales data for the week
     }
+    price = color_data$price
+    revenue = weekly_sold * price
+    
+    cat(sprintf("%s: Sold %d, Price £%.2f, Revenue £%.2f\n", color, weekly_sold, price, revenue))
   }
 }
 

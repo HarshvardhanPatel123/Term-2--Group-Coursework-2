@@ -2,13 +2,6 @@
 setwd("~/Documents/GitHub/Term-2--Group-Coursework-2/")
 source("functions.R")
 
-#so the user is asked to input date and then we convert it to a required format
-#cat("Enter the date for the inventory update (YYYY-MM-DD): ")
-#date_input <- readline()
-#formatted_date <- gsub("-", "", date_input)  #remove dashes
-#weekly_file <- paste0("wc", formatted_date, ".txt")  #construct the filename
-#parse_and_update_inventory(weekly_file)
-
 cat("If you want to start from the beginning enter 'restart', otherwise enter anything else: ")
 decision <- tolower(readline())
 
@@ -16,11 +9,11 @@ if (decision == "restart") {
   repeat {
     cat("Enter the date for the inventory update (YYYY-MM-DD): ")
     date_input <- readline()
-    formatted_date <- gsub("-", "", date_input)  # Remove dashes
-    weekly_file <- paste0("wc", formatted_date, ".txt")  # Construct the filename
+    formatted_date <- gsub("-", "", date_input)  #remove dashes
+    weekly_file <- paste0("wc", formatted_date, ".txt")  #construct the filename
     
     if (file.exists(weekly_file)) {
-      # Check if the inventory file exists before trying to remove it
+      #check if the inventory file exists before trying to remove it
       inventory_path <- "inventory.rds"
       if (file.exists(inventory_path)) {
         file.remove(inventory_path)
@@ -45,7 +38,8 @@ if (decision == "restart") {
 add_color("white", 200, 0.99)
 add_color("orange", 200, 1.99)
 
-
+#add tins to existing colors
+refill_color("blue", 25)
 
 #deactivate the color
 remove_color("green")
@@ -62,7 +56,9 @@ generate_sales_report(date_input)  #use the actual date for reporting
 
 #show history for a specific color and week
 history_color("red")  #print sales history for the color 'red'
+history_color("blue")  #print sales history for the color 'blue'
 history_week("2024-03-04")  #print sales data for the week starting 2024-03-04
+history_week("2024-05-20")  #print sales data for the week starting 2024-05-20
 
 #save the current R environment to preserve changes
 save_environment("my_inventory_env.RData")
