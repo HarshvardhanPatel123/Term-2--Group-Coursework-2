@@ -75,34 +75,34 @@ parse_and_update_inventory <- function(filepath, output_dir = getwd()) {
 
 
 #update sold quantities for a day
-update_sold_quantities <- function() {
+# Update sold quantities for a day
+update_sold_quantities <- function(date_str) {
   inventory <- get_or_initialize_inventory()  # Load inventory
   
   if (length(ls(envir = inventory)) == 0) {
     stop("Inventory has not been initialized or is empty.")
   }
   
-  # Ask for today's date
-  cat("Please enter today's date (YYYY-MM-DD):\n")
-  date_str <- readline()
-  if (!grepl("^\\d{4}-\\d{2}-\\d{2}$", date_str)) {
-    cat("Invalid date format. Please use YYYY-MM-DD format.\n")
-    return()
-  }
+  cat("Loaded inventory with the following colors:\n")
+  print(ls(envir = inventory))
   
-  # Initialize a temporary data store to hold today's sales input
   daily_sales <- list()
   
   for (color in ls(envir = inventory)) {
     color_data <- inventory[[color]]
     
+    cat(sprintf("Checking color: %s, Status: %s\n", color, ifelse(color_data$inactive, "Inactive", "Active")))
+    
     if (isTRUE(color_data$inactive)) {
+      cat(sprintf("Skipping inactive color: %s\n", color))
       next  # Skip inactive colors
     }
     
+    current_available <- color_data$delivered - color_data$sold  # Current stock available for sale
+    cat(sprintf("Prompting sales data for %s. Available: %d\n", color, current_available))
+    
     repeat {
-      current_available <- color_data$delivered - color_data$sold  # Current stock available for sale
-      cat(sprintf("Enter the number of %s tins sold on %s (Available: %d):\n", color, date_str, current_available))
+      cat(sprintf("Enter the number of %s tins sold today (Available: %d):\n", color, current_available))
       sold_str <- readline()
       if (nzchar(sold_str) && grepl("^[0-9]+$", sold_str)) {
         sold <- as.integer(sold_str)
@@ -118,7 +118,6 @@ update_sold_quantities <- function() {
     }
   }
   
-  # Confirmation of entries
   cat("You have entered the following sales data:\n")
   for (color in names(daily_sales)) {
     cat(sprintf("%s: %d sold on %s\n", color, daily_sales[[color]], date_str))
@@ -179,13 +178,12 @@ remove_color <- function(color) {
 
 
 #generate and save the sales report
-generate_sales_report <- function(date, filename = NULL) {
-  inventory <- get_or_initialize_inventory()  # Load inventory
+generate_sales_report <- function(date) {
+  inventory <- get_or_initialize_inventory()  #load inventory
   if (length(ls(envir = inventory)) == 0) {
     stop("Inventory has not been initialized or is empty.")
   }
   
-  #create a data frame to store the report data
   report_data <- data.frame(
     Color = character(),
     Delivered = integer(),
@@ -196,7 +194,6 @@ generate_sales_report <- function(date, filename = NULL) {
     stringsAsFactors = FALSE
   )
   
-  #fill the data frame with inventory data
   for (color in ls(envir = inventory)) {
     color_data <- inventory[[color]]
     if (!is.numeric(color_data$sold) || !is.numeric(color_data$price)) {
@@ -210,7 +207,6 @@ generate_sales_report <- function(date, filename = NULL) {
     remaining = delivered - sold
     revenue = sold * price
     
-    #append to data frame
     report_data <- rbind(report_data, data.frame(
       Color = color,
       Delivered = delivered,
@@ -221,12 +217,8 @@ generate_sales_report <- function(date, filename = NULL) {
     ))
   }
   
-  #specify the filename based on the provided date if not specified
-  if (missing(filename)) {
-    filename <- paste0("sales_report_", date, ".csv")
-  }
+  filename <- paste0(date, ".csv")  #use date directly for filename
   
-  #write the report to a CSV file
   write.csv(report_data, filename, row.names = FALSE)
   cat(sprintf("Sales report for %s saved as %s\n", date, filename))
 }

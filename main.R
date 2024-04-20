@@ -2,25 +2,63 @@
 setwd("~/Documents/GitHub/Term-2--Group-Coursework-2/")
 source("functions.R")
 
-#weekly file update - ensure the correct file name is used
-weekly_file <- "wc20240311.txt"  # Change this each week
-parse_and_update_inventory(weekly_file)
+#so the user is asked to input date and then we convert it to a required format
+#cat("Enter the date for the inventory update (YYYY-MM-DD): ")
+#date_input <- readline()
+#formatted_date <- gsub("-", "", date_input)  #remove dashes
+#weekly_file <- paste0("wc", formatted_date, ".txt")  #construct the filename
+#parse_and_update_inventory(weekly_file)
+
+cat("If you want to start from the beginning enter 'restart', otherwise enter anything else: ")
+decision <- tolower(readline())
+
+if (decision == "restart") {
+  repeat {
+    cat("Enter the date for the inventory update (YYYY-MM-DD): ")
+    date_input <- readline()
+    formatted_date <- gsub("-", "", date_input)  # Remove dashes
+    weekly_file <- paste0("wc", formatted_date, ".txt")  # Construct the filename
+    
+    if (file.exists(weekly_file)) {
+      # Check if the inventory file exists before trying to remove it
+      inventory_path <- "inventory.rds"
+      if (file.exists(inventory_path)) {
+        file.remove(inventory_path)
+      } else {
+        cat("No existing inventory to clear.\n")
+      }
+      parse_and_update_inventory(weekly_file)
+      break
+    } else {
+      cat(sprintf("No file found for date %s. Please enter a valid date.\n", date_input))
+    }
+  }
+} else {
+  cat("Continuing with existing data...\n")
+  cat("Please enter today's date (YYYY-MM-DD) for operations:\n")
+  date_input <- readline()
+}
+
 
 #add new color with initial stock and price
-add_color("pink", 50, 9.99)
-add_color("white", 100, 0.99)
+#add_color("pink", 50, 9.99)
+add_color("white", 200, 0.99)
+add_color("orange", 200, 1.99)
+
+
 
 #deactivate the color
 remove_color("green")
 
 #update the inventory with the number of tins sold for the day
-update_sold_quantities()
+update_sold_quantities(date_input)
 
 #print current stock levels
 current_stock()
 
 #generate and save the sales report
-generate_sales_report("2024-03-04")
+#generate_sales_report("2024-03-04")
+generate_sales_report(date_input)  #use the actual date for reporting
 
 #show history for a specific color and week
 history_color("red")  #print sales history for the color 'red'
